@@ -13,6 +13,7 @@
 #include "Teleport/Parent/TeleportActor_Parent.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 
 
 // Sets default values
@@ -21,6 +22,8 @@ AVR_Character_Parent::AVR_Character_Parent()
 	
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+
+	SetReplicates(true);
 
 	VRRoot = CreateDefaultSubobject<USceneComponent>(TEXT("VRRoot"));
 	VRRoot->SetupAttachment(GetRootComponent());
@@ -54,6 +57,38 @@ void AVR_Character_Parent::BeginPlay()
 	SavePlayerController();
 }
 
+// Called every frame
+void AVR_Character_Parent::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	CameraOffset();
+	ScanForTeleportLocation();
+}
+
+// Called to bind functionality to input
+void AVR_Character_Parent::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	PlayerInputComponent->BindAction(TEXT("TeleportLeft"), IE_Pressed, this, &AVR_Character_Parent::TeleportLeftHand);
+	PlayerInputComponent->BindAction(TEXT("TeleportLeft"), IE_Released, this, &AVR_Character_Parent::StopTryingToTeleport);
+
+}
+
+// Setup Replicated variables
+void AVR_Character_Parent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AVR_Character_Parent, bTryingToTeleport);
+	DOREPLIFETIME(AVR_Character_Parent, TraceFromHere);
+	DOREPLIFETIME(AVR_Character_Parent, TeleportLocation);
+	DOREPLIFETIME(AVR_Character_Parent, bValidTeleportLocation);
+}
+
+
+
 void AVR_Character_Parent::CameraOffset_Implementation()
 {
 	FVector NewCameraOffset = Camera->GetComponentLocation() - GetActorLocation();
@@ -70,34 +105,40 @@ void AVR_Character_Parent::SetCameraToFloor_Implementation()
 	VRRoot->SetRelativeLocation(CameraOffset);
 }
 
-
 void AVR_Character_Parent::ScanToTeleport_Implementation(USceneComponent* TraceLineFromHere)
 {
 	if (!bUseVRTeleport || bTryingToTeleport) return;
-
-	bTryingToTeleport = true;
 
 	if (TraceLineFromHere == nullptr)
 	{
 		TraceLineFromHere = Camera;
 	}
-	else
-	{
-		TraceFromHere = TraceLineFromHere;
-	}
+
 	float ActorHalfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 	FVector BottomOfActor = GetActorLocation();
 	BottomOfActor.Z = -ActorHalfHeight;
 
 	TeleportLocation = BottomOfActor;
+
+	Server_ScanToTeleport(TraceLineFromHere);
 }
 
+void AVR_Character_Parent::Server_ScanToTeleport_Implementation(USceneComponent* TraceLineFromHere)
+{
+	if (!bUseVRTeleport || bTryingToTeleport || TraceLineFromHere == nullptr) return;
 
+	bTryingToTeleport = true;
+
+	TraceFromHere = TraceLineFromHere;
+}
 
 void AVR_Character_Parent::ScanForTeleportLocation_Implementation()
 {
 	{
 		if (!bUseVRTeleport || !bTryingToTeleport || TraceFromHere == nullptr) return;
+
+		if (!HasAuthority()) return;
+
 
 		FHitResult HitResult;
 		FVector StartLocation = TraceFromHere->GetComponentLocation() + TeleportOffset;
@@ -157,7 +198,7 @@ void AVR_Character_Parent::TeleportLeftHand()
 
 void AVR_Character_Parent::StopTryingToTeleport_Implementation()
 {
-	if (bValidTeleportLocation)
+	if (bValidTeleportLocation && bTryingToTeleport)
 	{
 		if (OwningPlayerController != nullptr)
 		{
@@ -166,50 +207,48 @@ void AVR_Character_Parent::StopTryingToTeleport_Implementation()
 
 		FTimerHandle Handle;
 		GetWorldTimerManager().SetTimer(Handle, this, &AVR_Character_Parent::TeleportUser, TeleportFadeTime, false);
-	}    
+	}
+	else
+	{
+		Server_TeleportUser();
+	}
 }
 
 void AVR_Character_Parent::TeleportUser_Implementation()
 {
-	if (bTryingToTeleport && OwningPlayerController)
+	if (bTryingToTeleport && bValidTeleportLocation)
 	{
-		float ActorHalfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-		TeleportLocation.Z = +ActorHalfHeight;
-
-		SetActorLocation(TeleportLocation);
-
-		if (OwningPlayerController)
+		if (OwningPlayerController != nullptr)
 		{
 			OwningPlayerController->PlayerCameraManager->StartCameraFade(1, 0, TeleportFadeTime, FLinearColor::Black, true, true);
+		}
+		Server_TeleportUser();
+	}
+}
+
+void AVR_Character_Parent::Server_TeleportUser_Implementation()
+{
+	if (HasAuthority())
+	{
+		if (bTryingToTeleport && bValidTeleportLocation)
+		{
+			float ActorHalfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+			TeleportLocation.Z = +ActorHalfHeight;
+
+			SetActorLocation(TeleportLocation);
+		}
+		else
+		{
+
 		}
 
 		bTryingToTeleport = false;
 	}
 }
 
-
 void AVR_Character_Parent::SavePlayerController_Implementation()
 {
 	OwningPlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-}
-
-// Called every frame
-void AVR_Character_Parent::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-	CameraOffset();
-	ScanForTeleportLocation();
-}
-
-// Called to bind functionality to input
-void AVR_Character_Parent::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-	PlayerInputComponent->BindAction(TEXT("TeleportLeft"), IE_Pressed, this, &AVR_Character_Parent::TeleportLeftHand);
-	PlayerInputComponent->BindAction(TEXT("TeleportLeft"), IE_Released, this, &AVR_Character_Parent::StopTryingToTeleport);
-
 }
 
 

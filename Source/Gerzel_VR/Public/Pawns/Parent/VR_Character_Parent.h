@@ -46,6 +46,9 @@ protected:
 
 		virtual void ScanToTeleport_Implementation(USceneComponent* TraceLineFromHere);
 
+	UFUNCTION(Server, Reliable, BlueprintCallable)
+		void Server_ScanToTeleport(USceneComponent* TraceLineFromHere);
+
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
 		void ScanForTeleportLocation();
 
@@ -63,6 +66,9 @@ protected:
 		void TeleportUser();
 
 		virtual void TeleportUser_Implementation();
+
+		UFUNCTION(Server, Reliable, BlueprintCallable)
+		void Server_TeleportUser();
 
 protected:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | UserInfo")
@@ -95,28 +101,28 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "VR | Teleportation")
 		UStaticMeshComponent* TeleportMesh;
 
-	UPROPERTY(EditAnywhere, Category = "VR | Teleportation")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
 		float MaxTeleportRange = 1000.f;
 
-	UPROPERTY(EditAnywhere, Category = "VR | Teleportation")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
 		FVector TeleportOffset = FVector(0.0f, 0.0f, 10.0f);
 
-	UPROPERTY(VisibleAnywhere, Category = "VR | Teleportation")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
 		bool bTryingToTeleport;
 
-	UPROPERTY(VisibleAnywhere, Category = "VR | Teleportation")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
 		bool bValidTeleportLocation;
 
-	UPROPERTY(VisibleAnywhere, Category = "VR | Teleportation")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
 		FVector TeleportLocation; 
 
-	UPROPERTY(EditAnywhere, Category = "VR | Teleportation")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
 		float TeleportFadeTime = 0.25f;
 
-	UPROPERTY(EditAnywhere, Category = "VR | Teleportation")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
 		USceneComponent* TraceFromHere;
 
-	UPROPERTY(EditAnywhere, Category = "VR | Teleportation")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
 		FVector TeleportProjectionExtent = FVector(100, 100, 100);
 	
 protected:
