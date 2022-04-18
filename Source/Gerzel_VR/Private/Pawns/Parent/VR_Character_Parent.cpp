@@ -14,6 +14,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "Teleport/Parent/TeleportLocationIcon_Parent.h"
 
 
 // Sets default values
@@ -30,11 +31,6 @@ AVR_Character_Parent::AVR_Character_Parent()
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(VRRoot);
-
-	TeleportMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TeleportMesh"));
-	TeleportMesh->SetupAttachment(GetRootComponent());
-	TeleportMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
 	
 	LeftHandRoot = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("LeftHandRoot"));
 	LeftHandRoot->SetupAttachment(VRRoot);
@@ -55,6 +51,7 @@ void AVR_Character_Parent::BeginPlay()
 	Super::BeginPlay();
 	UHeadMountedDisplayFunctionLibrary::SetTrackingOrigin(EHMDTrackingOrigin::Floor);
 	SavePlayerController();
+	SpawnTeleportIcon();
 }
 
 // Called every frame
@@ -64,6 +61,7 @@ void AVR_Character_Parent::Tick(float DeltaTime)
 
 	CameraOffset();
 	ScanForTeleportLocation();
+	DrawTeleportLine();
 }
 
 // Called to bind functionality to input
@@ -85,6 +83,8 @@ void AVR_Character_Parent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(AVR_Character_Parent, TraceFromHere);
 	DOREPLIFETIME(AVR_Character_Parent, TeleportLocation);
 	DOREPLIFETIME(AVR_Character_Parent, bValidTeleportLocation);
+	DOREPLIFETIME(AVR_Character_Parent, TeleportStart);
+	DOREPLIFETIME(AVR_Character_Parent, TeleportEnd);
 }
 
 
@@ -137,56 +137,101 @@ void AVR_Character_Parent::ScanForTeleportLocation_Implementation()
 	{
 		if (!bUseVRTeleport || !bTryingToTeleport || TraceFromHere == nullptr) return;
 
-		if (!HasAuthority()) return;
-
-
-		FHitResult HitResult;
-		FVector StartLocation = TraceFromHere->GetComponentLocation() + TeleportOffset;
-		FVector EndLocation = StartLocation + TraceFromHere->GetForwardVector() * MaxTeleportRange;
-
-		bool bLineTraceHit = GetWorld()->LineTraceSingleByChannel(HitResult, StartLocation, EndLocation, ECC_Visibility);
-
-		if (!bLineTraceHit)
+		if (HasAuthority())
 		{
-			if (bDebugTeleportation)
-			{
-				DrawDebugLine(GetWorld(), StartLocation, EndLocation, FColor::Red, false, 0.0f, 1.0f);
-			}
-			bValidTeleportLocation = false;
-			return;
-		}
+			FHitResult HitResult;
+			FVector StartLocation = TraceFromHere->GetComponentLocation() + TeleportOffset;
+			FVector EndLocation = StartLocation + TraceFromHere->GetForwardVector() * MaxTeleportRange;
 
-		if (Cast<ATeleportActor_Parent>(HitResult.Actor))
-		{
-			if (bDebugTeleportation)
+			bool bLineTraceHit = GetWorld()->LineTraceSingleByChannel(HitResult, StartLocation, EndLocation, ECC_Visibility);
+
+			if (!bLineTraceHit)
 			{
-				DrawDebugLine(GetWorld(), StartLocation, HitResult.Location, FColor::Blue, false, 0.0f, 1.0f);
-				DrawDebugBox(GetWorld(), HitResult.Location, FVector(5.0f, 5.0f, 5.0f), FColor::Blue, false, 0.0f, 10.0f);
+				TeleportStart = StartLocation;
+				TeleportEnd = HitResult.TraceEnd;
+				bValidTeleportLocation = false;
+				MultiCastDrawTeleport();
+				return;
 			}
-			bValidTeleportLocation = true;
+
+			if (Cast<ATeleportActor_Parent>(HitResult.Actor))
+			{
+				TeleportLocation = HitResult.Location;
+				TeleportStart = StartLocation;
+				TeleportEnd = TeleportLocation;
+				bValidTeleportLocation = true;
+				MultiCastDrawTeleport();
+				return;
+			}
+
+			FNavLocation NavLocation;
+			bool bOnNavMesh = UNavigationSystemV1::GetNavigationSystem(GetWorld())->ProjectPointToNavigation(HitResult.Location, NavLocation, TeleportProjectionExtent);
+
+			if (!bOnNavMesh)
+			{
+				TeleportStart = StartLocation;
+				TeleportEnd = HitResult.Location;
+				bValidTeleportLocation = false;
+				MultiCastDrawTeleport();
+				return;
+			}
+
 			TeleportLocation = HitResult.Location;
+			TeleportStart = StartLocation;
+			TeleportEnd = TeleportLocation;
+			bValidTeleportLocation = true;
+			MultiCastDrawTeleport();
 			return;
 		}
+	}
+}
 
+void AVR_Character_Parent::MultiCastDrawTeleport_Implementation()
+{
+	DrawTeleportLine();
+}
 
-		FNavLocation NavLocation;
-		bool bOnNavMesh = UNavigationSystemV1::GetNavigationSystem(GetWorld())->ProjectPointToNavigation(HitResult.Location, NavLocation, TeleportProjectionExtent);
-
-		if (!bOnNavMesh)
+void AVR_Character_Parent::DrawTeleportLine_Implementation()
+{
+	if (bTryingToTeleport)
+	{
+		if (TeleportLocationIcon)
 		{
-			DrawDebugLine(GetWorld(), StartLocation, HitResult.Location, FColor::Red, false, 0.0f, 1.0f);
-			DrawDebugBox(GetWorld(), HitResult.Location, FVector(5.0f, 5.0f, 5.0f), FColor::Red, false, 0.0f, 10.0f);
-			bValidTeleportLocation = false;
-			return;
+			TeleportLocationIcon->SetActorHiddenInGame(false);
+			TeleportLocationIcon->SetActorLocation(TeleportLocation);
 		}
-
-		bValidTeleportLocation = true;
-		TeleportLocation = HitResult.Location;
-
-		if (bDebugTeleportation)
+		else
 		{
-			DrawDebugLine(GetWorld(), StartLocation, HitResult.Location, FColor::Green, false, 0.0f, 1.0f);
-			DrawDebugBox(GetWorld(), HitResult.Location, FVector(5.0f, 5.0f, 5.0f), FColor::Green, false, 0.0f, 10.0f);
+			SpawnTeleportIcon();
+		}
+	}
+	else
+	{
+		TeleportLocationIcon->SetActorHiddenInGame(true);
+	}
+
+	if (bDebugTeleportation)
+	{
+		if (bValidTeleportLocation)
+		{
+			DrawDebugLine(GetWorld(), TeleportStart, TeleportEnd, FColor::Green, false, 0.0f, 1.0f);
+			DrawDebugBox(GetWorld(), TeleportEnd, FVector(5.0f, 5.0f, 5.0f), FColor::Blue, false, 0.0f, 10.0f);
+		}
+		else
+		{
+			DrawDebugLine(GetWorld(), TeleportStart, TeleportEnd, FColor::Red, false, 0.0f, 1.0f);
+		}
+	}
+	else
+	{
+		if (TeleportLocationIcon)
+		{
+			TeleportLocationIcon->SetActorHiddenInGame(false);
+			TeleportLocationIcon->SetActorLocation(TeleportLocation);
+		}
+		else
+		{
+			SpawnTeleportIcon();
 		}
 	}
 }
@@ -224,6 +269,21 @@ void AVR_Character_Parent::TeleportUser_Implementation()
 		}
 		Server_TeleportUser();
 	}
+}
+
+void AVR_Character_Parent::SpawnTeleportIcon_Implementation()
+{
+	if (TeleportLocationIcon) return;
+
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.SpawnCollisionHandlingOverride = true ? ESpawnActorCollisionHandlingMethod::AlwaysSpawn : ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	TeleportLocationIcon = GetWorld()->SpawnActor<ATeleportLocationIcon_Parent>(TeleportLocationIconClass, GetActorLocation(), GetActorRotation(), SpawnParams);
+	//TeleportLocationIcon->SetActorHiddenInGame(true);
+
+	TeleportLocationIcon->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 }
 
 void AVR_Character_Parent::Server_TeleportUser_Implementation()

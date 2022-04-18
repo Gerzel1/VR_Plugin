@@ -12,6 +12,7 @@ class UStaticMeshComponent;
 class UMotionControllerComponent;
 class AVR_Hands_Parent;
 class APlayerController;
+class ATeleportLocationIcon_Parent;
 
 
 UCLASS()
@@ -54,6 +55,15 @@ protected:
 
 		virtual void ScanForTeleportLocation_Implementation();
 
+	UFUNCTION(NetMulticast, Reliable)
+		void MultiCastDrawTeleport();
+		void MultiCastDrawTeleport_Implementation();
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
+		void DrawTeleportLine();
+
+		virtual void DrawTeleportLine_Implementation();
+
 	UFUNCTION(Category = "VR | Teleportation")
 		void TeleportLeftHand();
 
@@ -66,6 +76,11 @@ protected:
 		void TeleportUser();
 
 		virtual void TeleportUser_Implementation();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
+		void SpawnTeleportIcon();
+
+		virtual void SpawnTeleportIcon_Implementation();
 
 		UFUNCTION(Server, Reliable, BlueprintCallable)
 		void Server_TeleportUser();
@@ -98,8 +113,11 @@ protected:
 		UMotionControllerComponent* RightHandRoot;
 
 protected:
-	UPROPERTY(VisibleAnywhere, Category = "VR | Teleportation")
-		UStaticMeshComponent* TeleportMesh;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
+		TSubclassOf<ATeleportLocationIcon_Parent> TeleportLocationIconClass;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
+		ATeleportLocationIcon_Parent* TeleportLocationIcon;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
 		float MaxTeleportRange = 1000.f;
@@ -124,6 +142,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
 		FVector TeleportProjectionExtent = FVector(100, 100, 100);
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
+		FVector TeleportStart;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
+		FVector TeleportEnd;
 	
 protected:
 	UPROPERTY(EditAnywhere, meta = (EditCondition = "bUseVRHands"), Category = "VR | Hands")
