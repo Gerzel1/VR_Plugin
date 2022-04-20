@@ -54,10 +54,6 @@ protected:
 		void ScanForTeleportLocation();
 
 		virtual void ScanForTeleportLocation_Implementation();
-
-	UFUNCTION(NetMulticast, Reliable)
-		void MultiCastDrawTeleport();
-		void MultiCastDrawTeleport_Implementation();
 	
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
 		void DrawTeleportLine();
@@ -82,7 +78,7 @@ protected:
 
 		virtual void SpawnTeleportIcon_Implementation();
 
-		UFUNCTION(Server, Reliable, BlueprintCallable)
+	UFUNCTION(Server, Reliable, BlueprintCallable)
 		void Server_TeleportUser();
 
 protected:
@@ -144,10 +140,16 @@ protected:
 		FVector TeleportProjectionExtent = FVector(100, 100, 100);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
-		FVector TeleportStart;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
 		FVector TeleportEnd;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
+		UStaticMeshComponent* Beam;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
+		UStaticMeshComponent* BeamStart;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
+		UStaticMeshComponent* BeamEnd;
 	
 protected:
 	UPROPERTY(EditAnywhere, meta = (EditCondition = "bUseVRHands"), Category = "VR | Hands")
