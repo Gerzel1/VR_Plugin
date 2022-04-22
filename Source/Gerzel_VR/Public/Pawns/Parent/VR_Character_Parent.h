@@ -60,13 +60,20 @@ protected:
 
 		virtual void DrawTeleportLine_Implementation();
 
-	UFUNCTION(Category = "VR | Teleportation")
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
 		void TeleportLeftHand();
+
+		virtual void TeleportLeftHand_Implementation();
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
 		void StopTryingToTeleport();
 
 		virtual void StopTryingToTeleport_Implementation();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
+		void StopTryingToTeleportLeft();
+
+		virtual void StopTryingToTeleportLeft_Implementation();
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
 		void TeleportUser();
@@ -78,6 +85,11 @@ protected:
 
 		virtual void SpawnTeleportIcon_Implementation();
 
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
+		void SpawnTeleportBeam();
+
+		virtual void SpawnTeleportBeam_Implementation();
+
 	UFUNCTION(Server, Reliable, BlueprintCallable)
 		void Server_TeleportUser();
 
@@ -85,7 +97,13 @@ protected:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | UserInfo")
 		void SavePlayerController();
 
-	virtual void SavePlayerController_Implementation();
+		virtual void SavePlayerController_Implementation();
+
+protected:
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Character")
+		FVector GetBottomOfCharacter();
+
+		virtual FVector GetBottomOfCharacter_Implementation();
 
 
 public:	
@@ -157,6 +175,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, meta = (EditCondition = "bUseVRHands"), Category = "VR | Hands")
 		TSubclassOf<AVR_Hands_Parent> VR_Hand_Right;
+
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bUseVRHands"), Category = "VR | Hands")
+		bool bTeleportLeftHand;
 
 protected: 
 	UPROPERTY(EditAnywhere, meta = (EditCondition = "bUseVRHands"), Category = "VR | UserInfo")

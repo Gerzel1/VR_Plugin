@@ -55,7 +55,7 @@ AVR_Character_Parent::AVR_Character_Parent()
 	BeamEnd = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Beam End"));
 	BeamEnd->SetupAttachment(BeamStart);
 	BeamEnd->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	BeamEnd->SetHiddenInGame(true);
+	BeamEnd->SetHiddenInGame(true);  
 }
 
 void AVR_Character_Parent::OnConstruction(const FTransform& Transform)
@@ -70,6 +70,15 @@ void AVR_Character_Parent::BeginPlay()
 	UHeadMountedDisplayFunctionLibrary::SetTrackingOrigin(EHMDTrackingOrigin::Floor);
 	SavePlayerController();
 	SpawnTeleportIcon();
+	SpawnTeleportBeam();
+}
+
+FVector AVR_Character_Parent::GetBottomOfCharacter_Implementation()
+{
+	float ActorHalfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+	FVector Offset = GetActorLocation();
+	Offset.Z = -ActorHalfHeight;
+	return FVector(Offset);
 }
 
 // Called every frame
@@ -88,7 +97,7 @@ void AVR_Character_Parent::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
 	PlayerInputComponent->BindAction(TEXT("TeleportLeft"), IE_Pressed, this, &AVR_Character_Parent::TeleportLeftHand);
-	PlayerInputComponent->BindAction(TEXT("TeleportLeft"), IE_Released, this, &AVR_Character_Parent::StopTryingToTeleport);
+	PlayerInputComponent->BindAction(TEXT("TeleportLeft"), IE_Released, this, &AVR_Character_Parent::StopTryingToTeleportLeft);
 
 }
 
@@ -256,8 +265,11 @@ void AVR_Character_Parent::DrawTeleportLine_Implementation()
 	}
 }
 
-void AVR_Character_Parent::TeleportLeftHand()
+void AVR_Character_Parent::TeleportLeftHand_Implementation()
 {
+	if (bTryingToTeleport) return;
+
+	bTeleportLeftHand = true;
 	ScanToTeleport(LeftHandRoot);
 }
 
@@ -276,6 +288,14 @@ void AVR_Character_Parent::StopTryingToTeleport_Implementation()
 	else
 	{
 		Server_TeleportUser();
+	}
+}
+
+void AVR_Character_Parent::StopTryingToTeleportLeft_Implementation()
+{
+	if (bTryingToTeleport && bTeleportLeftHand)
+	{
+		StopTryingToTeleport();
 	}
 }
 
@@ -300,10 +320,14 @@ void AVR_Character_Parent::SpawnTeleportIcon_Implementation()
 	SpawnParams.Owner = this;
 	SpawnParams.SpawnCollisionHandlingOverride = true ? ESpawnActorCollisionHandlingMethod::AlwaysSpawn : ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	TeleportLocationIcon = GetWorld()->SpawnActor<ATeleportLocationIcon_Parent>(TeleportLocationIconClass, GetActorLocation(), GetActorRotation(), SpawnParams);
+	TeleportLocationIcon = GetWorld()->SpawnActor<ATeleportLocationIcon_Parent>(TeleportLocationIconClass, GetBottomOfCharacter(), GetActorRotation(), SpawnParams);
 	TeleportLocationIcon->SetActorHiddenInGame(true);
 
 	TeleportLocationIcon->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+}
+
+void AVR_Character_Parent::SpawnTeleportBeam_Implementation()
+{
 }
 
 void AVR_Character_Parent::Server_TeleportUser_Implementation()
