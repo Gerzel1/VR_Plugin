@@ -18,6 +18,7 @@
 #include "Math/UnrealMathUtility.h"
 #include "Math/Vector.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "BeamEffects/Parent/Beam_Parent.h"
 
 
 // Sets default values
@@ -41,21 +42,6 @@ AVR_Character_Parent::AVR_Character_Parent()
 	RightHandRoot = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("RightHandRoot"));
 	RightHandRoot->SetupAttachment(VRRoot);
 	RightHandRoot->MotionSource = FName(TEXT("Right"));
-
-	BeamStart = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Beam Start"));
-	BeamStart->SetupAttachment(VRRoot);
-	BeamStart->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	BeamStart->SetHiddenInGame(true);
-
-	Beam = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Beam"));
-	Beam->SetupAttachment(BeamStart);
-	Beam->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	Beam->SetHiddenInGame(true);
-
-	BeamEnd = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Beam End"));
-	BeamEnd->SetupAttachment(BeamStart);
-	BeamEnd->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	BeamEnd->SetHiddenInGame(true);  
 }
 
 void AVR_Character_Parent::OnConstruction(const FTransform& Transform)
@@ -73,14 +59,6 @@ void AVR_Character_Parent::BeginPlay()
 	SpawnTeleportBeam();
 }
 
-FVector AVR_Character_Parent::GetBottomOfCharacter_Implementation()
-{
-	float ActorHalfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-	FVector Offset = GetActorLocation();
-	Offset.Z = -ActorHalfHeight;
-	return FVector(Offset);
-}
-
 // Called every frame
 void AVR_Character_Parent::Tick(float DeltaTime)
 {
@@ -89,6 +67,9 @@ void AVR_Character_Parent::Tick(float DeltaTime)
 	CameraOffset();
 	ScanForTeleportLocation();
 	DrawTeleportLine();
+	DrawDebugBox(GetWorld(), GetBottomOfCharacter(), FVector(5.0f, 5.0f, 5.0f), FColor::Blue, false, 0.0f, 10.0f);
+
+	DrawDebugBox(GetWorld(), VRRoot->GetComponentLocation(), FVector(5.0f, 5.0f, 5.0f), FColor::Green, false, 0.0f, 10.0f);
 }
 
 // Called to bind functionality to input
@@ -112,7 +93,6 @@ void AVR_Character_Parent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(AVR_Character_Parent, bValidTeleportLocation);
 	DOREPLIFETIME(AVR_Character_Parent, TeleportEnd);
 }
-
 
 
 void AVR_Character_Parent::CameraOffset_Implementation()
@@ -140,11 +120,7 @@ void AVR_Character_Parent::ScanToTeleport_Implementation(USceneComponent* TraceL
 		TraceLineFromHere = Camera;
 	}
 
-	float ActorHalfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-	FVector BottomOfActor = GetActorLocation();
-	BottomOfActor.Z = -ActorHalfHeight;
-
-	TeleportLocation = BottomOfActor;
+	TeleportLocation = GetBottomOfCharacter();
 
 	Server_ScanToTeleport(TraceLineFromHere);
 }
@@ -153,9 +129,9 @@ void AVR_Character_Parent::Server_ScanToTeleport_Implementation(USceneComponent*
 {
 	if (!bUseVRTeleport || bTryingToTeleport || TraceLineFromHere == nullptr) return;
 
-	bTryingToTeleport = true;
-
 	TraceFromHere = TraceLineFromHere;
+
+	bTryingToTeleport = true;
 }
 
 void AVR_Character_Parent::ScanForTeleportLocation_Implementation()
@@ -224,43 +200,46 @@ void AVR_Character_Parent::DrawTeleportLine_Implementation()
 		{
 			if (TeleportLocationIcon)
 			{
+				TeleportLocationIcon->MoveActor(TeleportLocation, TeleportEnd, bValidTeleportLocation);
 				TeleportLocationIcon->SetActorHiddenInGame(false);
-
-				FVector NewLocation = FMath::VInterpTo(TeleportLocationIcon->GetActorLocation(), TeleportLocation, GetWorld()->DeltaTimeSeconds, 5.0f);
-
-				TeleportLocationIcon->SetActorLocation(NewLocation);
-				TeleportLocationIcon->SetActorRotation(FRotator(0.0f, 0.0f, 0.0f));
-
-				if (Beam && BeamStart && BeamEnd)
-				{
-					float Length = FVector::Dist(TraceFromHere->GetComponentLocation() + TeleportOffset, TeleportEnd);
-					BeamStart->SetWorldLocation(TraceFromHere->GetComponentLocation() + TeleportOffset);
-					BeamStart->SetWorldRotation(UKismetMathLibrary::FindLookAtRotation(TraceFromHere->GetComponentLocation() + TeleportOffset, TeleportEnd));
-
-					Beam->SetRelativeScale3D(FVector(Length, 1.0f, 1.0f));
-
-					BeamEnd->SetWorldLocation(TeleportEnd);
-
-					Beam->SetHiddenInGame(false);
-					BeamStart->SetHiddenInGame(false);
-					BeamEnd->SetHiddenInGame(false);
-				}
 			}
 			else
 			{
-				SpawnTeleportIcon();
+				SpawnTeleportIcon();   
+			}
+
+			if (TeleportBeam)
+			{
+				TeleportBeam->AttachToComponent(TraceFromHere, FAttachmentTransformRules::KeepWorldTransform);
+				TeleportBeam->SetActorLocation(TraceFromHere->GetComponentLocation());
+				TeleportBeam->DrawBeam(TeleportOffset, TeleportEnd, bValidTeleportLocation);
+
+				if (TeleportBeam->IsHidden())
+				{
+					TeleportBeam->SetActorHiddenInGame(false);
+				}
+
+			}
+			else
+			{
+				SpawnTeleportBeam();
 			}
 		}
 	}
 	else
 	{
-		if (TeleportLocationIcon)
+			
+		if (TeleportLocationIcon && !(TeleportLocationIcon->IsHidden()))
 		{
 			TeleportLocationIcon->SetActorHiddenInGame(true);
-			Beam->SetHiddenInGame(true);
-			BeamStart->SetHiddenInGame(true);
-			BeamEnd->SetHiddenInGame(true);
-			Beam->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
+			TeleportLocationIcon->SetActorLocation(GetBottomOfCharacter());
+		}
+
+		if (TeleportBeam && !(TeleportBeam->IsHidden()))
+		{
+			TeleportBeam->SetActorHiddenInGame(true);
+			TeleportBeam->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+			TeleportBeam->SetActorLocation(GetBottomOfCharacter());
 		}
 	}
 }
@@ -307,6 +286,7 @@ void AVR_Character_Parent::TeleportUser_Implementation()
 		{
 			OwningPlayerController->PlayerCameraManager->StartCameraFade(1, 0, TeleportFadeTime, FLinearColor::Black, true, true);
 		}
+
 		Server_TeleportUser();
 	}
 }
@@ -314,6 +294,12 @@ void AVR_Character_Parent::TeleportUser_Implementation()
 void AVR_Character_Parent::SpawnTeleportIcon_Implementation()
 {
 	if (TeleportLocationIcon) return;
+
+	if (!TeleportLocationIconClass)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("VR Character - 'TeleportLocationIconClass' is invalid"));
+		return;
+	}
 
 
 	FActorSpawnParameters SpawnParams;
@@ -328,6 +314,22 @@ void AVR_Character_Parent::SpawnTeleportIcon_Implementation()
 
 void AVR_Character_Parent::SpawnTeleportBeam_Implementation()
 {
+	if (TeleportBeam) return;
+
+	if (!TeleportBeamClass)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("VR Character - 'TeleportBeamClass' is invalid"));
+		return;
+	}
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.SpawnCollisionHandlingOverride = true ? ESpawnActorCollisionHandlingMethod::AlwaysSpawn : ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	TeleportBeam = GetWorld()->SpawnActor<ABeam_Parent>(TeleportBeamClass, GetBottomOfCharacter(), GetActorRotation(), SpawnParams);
+	//TeleportBeam->SetActorHiddenInGame(true);
+
+	TeleportBeam->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 }
 
 void AVR_Character_Parent::Server_TeleportUser_Implementation()
@@ -353,6 +355,11 @@ void AVR_Character_Parent::Server_TeleportUser_Implementation()
 void AVR_Character_Parent::SavePlayerController_Implementation()
 {
 	OwningPlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+}
+
+FVector AVR_Character_Parent::GetBottomOfCharacter_Implementation()
+{
+	return FVector(VRRoot->GetComponentLocation());
 }
 
 

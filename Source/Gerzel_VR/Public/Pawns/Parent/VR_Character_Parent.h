@@ -13,6 +13,7 @@ class UMotionControllerComponent;
 class AVR_Hands_Parent;
 class APlayerController;
 class ATeleportLocationIcon_Parent;
+class ABeam_Parent;
 
 
 UCLASS()
@@ -134,6 +135,12 @@ protected:
 		ATeleportLocationIcon_Parent* TeleportLocationIcon;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
+		TSubclassOf<ABeam_Parent> TeleportBeamClass;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
+		ABeam_Parent* TeleportBeam;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
 		float MaxTeleportRange = 1000.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
@@ -159,15 +166,6 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
 		FVector TeleportEnd;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
-		UStaticMeshComponent* Beam;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
-		UStaticMeshComponent* BeamStart;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
-		UStaticMeshComponent* BeamEnd;
 	
 protected:
 	UPROPERTY(EditAnywhere, meta = (EditCondition = "bUseVRHands"), Category = "VR | Hands")

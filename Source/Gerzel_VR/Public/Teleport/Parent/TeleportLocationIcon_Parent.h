@@ -23,4 +23,9 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
+		void MoveActor(FVector TeleportLocation, FVector End, bool bValidHit);
+
+	virtual void MoveActor_Implementation(FVector TeleportLocation, FVector End, bool bValidHit);
+
 };
