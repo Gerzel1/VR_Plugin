@@ -65,11 +65,8 @@ void AVR_Character_Parent::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	CameraOffset();
-	ScanForTeleportLocation();
+	Server_TeleportLogic();
 	DrawTeleportLine();
-	DrawDebugBox(GetWorld(), GetBottomOfCharacter(), FVector(5.0f, 5.0f, 5.0f), FColor::Blue, false, 0.0f, 10.0f);
-
-	DrawDebugBox(GetWorld(), VRRoot->GetComponentLocation(), FVector(5.0f, 5.0f, 5.0f), FColor::Green, false, 0.0f, 10.0f);
 }
 
 // Called to bind functionality to input
@@ -79,6 +76,9 @@ void AVR_Character_Parent::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 
 	PlayerInputComponent->BindAction(TEXT("TeleportLeft"), IE_Pressed, this, &AVR_Character_Parent::TeleportLeftHand);
 	PlayerInputComponent->BindAction(TEXT("TeleportLeft"), IE_Released, this, &AVR_Character_Parent::StopTryingToTeleportLeft);
+
+	PlayerInputComponent->BindAction(TEXT("TeleportRight"), IE_Pressed, this, &AVR_Character_Parent::TeleportRightHand);
+	PlayerInputComponent->BindAction(TEXT("TeleportRight"), IE_Released, this, &AVR_Character_Parent::StopTryingToTeleportRight);
 
 }
 
@@ -95,6 +95,7 @@ void AVR_Character_Parent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 }
 
 
+//Camera
 void AVR_Character_Parent::CameraOffset_Implementation()
 {
 	FVector NewCameraOffset = Camera->GetComponentLocation() - GetActorLocation();
@@ -111,6 +112,8 @@ void AVR_Character_Parent::SetCameraToFloor_Implementation()
 	VRRoot->SetRelativeLocation(CameraOffset);
 }
 
+
+//Teleportation
 void AVR_Character_Parent::ScanToTeleport_Implementation(USceneComponent* TraceLineFromHere)
 {
 	if (!bUseVRTeleport || bTryingToTeleport) return;
@@ -123,15 +126,6 @@ void AVR_Character_Parent::ScanToTeleport_Implementation(USceneComponent* TraceL
 	TeleportLocation = GetBottomOfCharacter();
 
 	Server_ScanToTeleport(TraceLineFromHere);
-}
-
-void AVR_Character_Parent::Server_ScanToTeleport_Implementation(USceneComponent* TraceLineFromHere)
-{
-	if (!bUseVRTeleport || bTryingToTeleport || TraceLineFromHere == nullptr) return;
-
-	TraceFromHere = TraceLineFromHere;
-
-	bTryingToTeleport = true;
 }
 
 void AVR_Character_Parent::ScanForTeleportLocation_Implementation()
@@ -278,6 +272,22 @@ void AVR_Character_Parent::StopTryingToTeleportLeft_Implementation()
 	}
 }
 
+void AVR_Character_Parent::TeleportRightHand_Implementation()
+{
+	if (bTryingToTeleport) return;
+
+	bTeleportLeftHand = false;
+	ScanToTeleport(RightHandRoot);
+}
+
+void AVR_Character_Parent::StopTryingToTeleportRight_Implementation()
+{
+	if (bTryingToTeleport && !bTeleportLeftHand)
+	{
+		StopTryingToTeleport();
+	}
+}
+
 void AVR_Character_Parent::TeleportUser_Implementation()
 {
 	if (bTryingToTeleport && bValidTeleportLocation)
@@ -332,6 +342,22 @@ void AVR_Character_Parent::SpawnTeleportBeam_Implementation()
 	TeleportBeam->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 }
 
+void AVR_Character_Parent::Server_TeleportLogic_Implementation()
+{
+	ScanForTeleportLocation();
+}
+
+
+//Teleport Server
+void AVR_Character_Parent::Server_ScanToTeleport_Implementation(USceneComponent* TraceLineFromHere)
+{
+	if (!bUseVRTeleport || bTryingToTeleport || TraceLineFromHere == nullptr) return;
+
+	TraceFromHere = TraceLineFromHere;
+
+	bTryingToTeleport = true;
+}
+
 void AVR_Character_Parent::Server_TeleportUser_Implementation()
 {
 	if (HasAuthority())
@@ -352,6 +378,8 @@ void AVR_Character_Parent::Server_TeleportUser_Implementation()
 	}
 }
 
+
+//Character
 void AVR_Character_Parent::SavePlayerController_Implementation()
 {
 	OwningPlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);

@@ -7,7 +7,7 @@
 #include "Beam_Parent.generated.h"
 
 
-UCLASS()
+UCLASS(Abstract)
 class GERZEL_VR_API ABeam_Parent : public AActor
 {
 	GENERATED_BODY()

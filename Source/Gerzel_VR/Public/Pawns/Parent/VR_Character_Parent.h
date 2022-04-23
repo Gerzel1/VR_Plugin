@@ -67,14 +67,24 @@ protected:
 		virtual void TeleportLeftHand_Implementation();
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
-		void StopTryingToTeleport();
-
-		virtual void StopTryingToTeleport_Implementation();
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
 		void StopTryingToTeleportLeft();
 
 		virtual void StopTryingToTeleportLeft_Implementation();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
+		void TeleportRightHand();
+
+		virtual void TeleportRightHand_Implementation();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
+		void StopTryingToTeleportRight();
+
+		virtual void StopTryingToTeleportRight_Implementation();
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
+		void StopTryingToTeleport();
+
+		virtual void StopTryingToTeleport_Implementation();
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
 		void TeleportUser();
@@ -93,6 +103,9 @@ protected:
 
 	UFUNCTION(Server, Reliable, BlueprintCallable)
 		void Server_TeleportUser();
+
+	UFUNCTION(Server, Reliable, BlueprintCallable)
+		void Server_TeleportLogic();
 
 protected:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | UserInfo")
@@ -121,20 +134,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "VR | Camera")
 		USceneComponent* VRRoot;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "VR | Hands")
-		UMotionControllerComponent* LeftHandRoot;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "VR | Hands")
-		UMotionControllerComponent* RightHandRoot;
-
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (BlueprintBaseOnly), Category = "VR | Teleportation")
 		TSubclassOf<ATeleportLocationIcon_Parent> TeleportLocationIconClass;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
 		ATeleportLocationIcon_Parent* TeleportLocationIcon;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (BlueprintBaseOnly), Category = "VR | Teleportation")
 		TSubclassOf<ABeam_Parent> TeleportBeamClass;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
@@ -177,8 +184,14 @@ protected:
 	UPROPERTY(EditAnywhere, meta = (EditCondition = "bUseVRHands"), Category = "VR | Hands")
 		bool bTeleportLeftHand;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "VR | Hands")
+		UMotionControllerComponent* LeftHandRoot;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "VR | Hands")
+		UMotionControllerComponent* RightHandRoot;
+
 protected: 
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bUseVRHands"), Category = "VR | UserInfo")
+	UPROPERTY(EditAnywhere, Category = "VR | UserInfo")
 		APlayerController* OwningPlayerController;
 	
 private:

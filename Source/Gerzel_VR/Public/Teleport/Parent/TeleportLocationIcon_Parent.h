@@ -6,7 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "TeleportLocationIcon_Parent.generated.h"
 
-UCLASS()
+UCLASS(Abstract)
 class GERZEL_VR_API ATeleportLocationIcon_Parent : public AActor
 {
 	GENERATED_BODY()
