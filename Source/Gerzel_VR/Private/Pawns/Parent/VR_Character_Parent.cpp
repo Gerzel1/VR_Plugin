@@ -19,6 +19,8 @@
 #include "Math/Vector.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "BeamEffects/Parent/Beam_Parent.h"
+#include "IXRTrackingSystem.h"
+#include "IHeadMountedDisplay.h"
 
 
 // Sets default values
@@ -54,19 +56,19 @@ void AVR_Character_Parent::BeginPlay()
 {
 	Super::BeginPlay();
 	UHeadMountedDisplayFunctionLibrary::SetTrackingOrigin(EHMDTrackingOrigin::Floor);
-	SavePlayerController();
-	SpawnTeleportIcon();
+
+	OwningPlayerController = Cast<APlayerController>(GetController());
+
 	SpawnTeleportBeam();
+	SpawnTeleportIcon();
 }
 
 // Called every frame
 void AVR_Character_Parent::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	CameraOffset();
 	Server_TeleportLogic();
-	DrawTeleportLine();
+	TeleportVisual();
 }
 
 // Called to bind functionality to input
@@ -74,11 +76,11 @@ void AVR_Character_Parent::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	PlayerInputComponent->BindAction(TEXT("TeleportLeft"), IE_Pressed, this, &AVR_Character_Parent::TeleportLeftHand);
-	PlayerInputComponent->BindAction(TEXT("TeleportLeft"), IE_Released, this, &AVR_Character_Parent::StopTryingToTeleportLeft);
+	//PlayerInputComponent->BindAction(TEXT("TeleportLeft"), IE_Pressed, this, &AVR_Character_Parent::);
+	//PlayerInputComponent->BindAction(TEXT("TeleportLeft"), IE_Released, this, &AVR_Character_Parent::);
 
-	PlayerInputComponent->BindAction(TEXT("TeleportRight"), IE_Pressed, this, &AVR_Character_Parent::TeleportRightHand);
-	PlayerInputComponent->BindAction(TEXT("TeleportRight"), IE_Released, this, &AVR_Character_Parent::StopTryingToTeleportRight);
+	//PlayerInputComponent->BindAction(TEXT("TeleportRight"), IE_Pressed, this, &AVR_Character_Parent::);
+	//PlayerInputComponent->BindAction(TEXT("TeleportRight"), IE_Released, this, &AVR_Character_Parent::);
 
 }
 
@@ -90,8 +92,15 @@ void AVR_Character_Parent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(AVR_Character_Parent, bTryingToTeleport);
 	DOREPLIFETIME(AVR_Character_Parent, TraceFromHere);
 	DOREPLIFETIME(AVR_Character_Parent, TeleportLocation);
-	DOREPLIFETIME(AVR_Character_Parent, bValidTeleportLocation);
 	DOREPLIFETIME(AVR_Character_Parent, TeleportEnd);
+	DOREPLIFETIME(AVR_Character_Parent, bValidTeleportLocation);
+	DOREPLIFETIME(AVR_Character_Parent, TeleportLocationIconClass);
+	DOREPLIFETIME(AVR_Character_Parent, TeleportBeamClass);
+	DOREPLIFETIME(AVR_Character_Parent, VR_Hand_Left);
+	DOREPLIFETIME(AVR_Character_Parent, VR_Hand_Right);
+	DOREPLIFETIME_CONDITION(AVR_Character_Parent, HeadTransform, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AVR_Character_Parent, LeftHandTransform, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AVR_Character_Parent, RightHandTransform, COND_SkipOwner);
 }
 
 
@@ -112,195 +121,7 @@ void AVR_Character_Parent::SetCameraToFloor_Implementation()
 	VRRoot->SetRelativeLocation(CameraOffset);
 }
 
-
 //Teleportation
-void AVR_Character_Parent::ScanToTeleport_Implementation(USceneComponent* TraceLineFromHere)
-{
-	if (!bUseVRTeleport || bTryingToTeleport) return;
-
-	if (TraceLineFromHere == nullptr)
-	{
-		TraceLineFromHere = Camera;
-	}
-
-	TeleportLocation = GetBottomOfCharacter();
-
-	Server_ScanToTeleport(TraceLineFromHere);
-}
-
-void AVR_Character_Parent::ScanForTeleportLocation_Implementation()
-{
-	{
-		if (!bUseVRTeleport || !bTryingToTeleport || TraceFromHere == nullptr) return;
-
-		if (HasAuthority())
-		{
-			FHitResult HitResult;
-			FVector StartLocation = TraceFromHere->GetComponentLocation() + TeleportOffset;
-			FVector EndLocation = StartLocation + TraceFromHere->GetForwardVector() * MaxTeleportRange;
-
-			bool bLineTraceHit = GetWorld()->LineTraceSingleByChannel(HitResult, StartLocation, EndLocation, ECC_Visibility);
-
-			if (!bLineTraceHit)
-			{
-				TeleportEnd = HitResult.TraceEnd;
-				bValidTeleportLocation = false;
-				return;
-			}
-
-			if (Cast<ATeleportActor_Parent>(HitResult.Actor))
-			{
-				TeleportLocation = HitResult.Location;
-				TeleportEnd = TeleportLocation;
-				bValidTeleportLocation = true;
-				return;
-			}
-
-			FNavLocation NavLocation;
-			bool bOnNavMesh = UNavigationSystemV1::GetNavigationSystem(GetWorld())->ProjectPointToNavigation(HitResult.Location, NavLocation, TeleportProjectionExtent);
-
-			if (!bOnNavMesh)
-			{
-				TeleportEnd = HitResult.Location;
-				bValidTeleportLocation = false;
-				return;
-			}
-
-			TeleportLocation = HitResult.Location;
-			TeleportEnd = TeleportLocation;
-			bValidTeleportLocation = true;
-			return;
-		}
-	}
-}
-
-void AVR_Character_Parent::DrawTeleportLine_Implementation()
-{
-	if (bTryingToTeleport)
-	{
-		if (bDebugTeleportation)
-		{
-			if (bValidTeleportLocation)
-			{
-				DrawDebugLine(GetWorld(), TraceFromHere->GetComponentLocation() + TeleportOffset, TeleportEnd, FColor::Green, false, 0.0f, 1.0f);
-				DrawDebugBox(GetWorld(), TeleportEnd, FVector(5.0f, 5.0f, 5.0f), FColor::Blue, false, 0.0f, 10.0f);
-			}
-			else
-			{
-				DrawDebugLine(GetWorld(), TraceFromHere->GetComponentLocation() + TeleportOffset, TeleportEnd, FColor::Red, false, 0.0f, 1.0f);
-			}
-		}
-		else
-		{
-			if (TeleportLocationIcon)
-			{
-				TeleportLocationIcon->MoveActor(TeleportLocation, TeleportEnd, bValidTeleportLocation);
-				TeleportLocationIcon->SetActorHiddenInGame(false);
-			}
-			else
-			{
-				SpawnTeleportIcon();   
-			}
-
-			if (TeleportBeam)
-			{
-				TeleportBeam->AttachToComponent(TraceFromHere, FAttachmentTransformRules::KeepWorldTransform);
-				TeleportBeam->SetActorLocation(TraceFromHere->GetComponentLocation());
-				TeleportBeam->DrawBeam(TeleportOffset, TeleportEnd, bValidTeleportLocation);
-
-				if (TeleportBeam->IsHidden())
-				{
-					TeleportBeam->SetActorHiddenInGame(false);
-				}
-
-			}
-			else
-			{
-				SpawnTeleportBeam();
-			}
-		}
-	}
-	else
-	{
-			
-		if (TeleportLocationIcon && !(TeleportLocationIcon->IsHidden()))
-		{
-			TeleportLocationIcon->SetActorHiddenInGame(true);
-			TeleportLocationIcon->SetActorLocation(GetBottomOfCharacter());
-		}
-
-		if (TeleportBeam && !(TeleportBeam->IsHidden()))
-		{
-			TeleportBeam->SetActorHiddenInGame(true);
-			TeleportBeam->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
-			TeleportBeam->SetActorLocation(GetBottomOfCharacter());
-		}
-	}
-}
-
-void AVR_Character_Parent::TeleportLeftHand_Implementation()
-{
-	if (bTryingToTeleport) return;
-
-	bTeleportLeftHand = true;
-	ScanToTeleport(LeftHandRoot);
-}
-
-void AVR_Character_Parent::StopTryingToTeleport_Implementation()
-{
-	if (bValidTeleportLocation && bTryingToTeleport)
-	{
-		if (OwningPlayerController != nullptr)
-		{
-			OwningPlayerController->PlayerCameraManager->StartCameraFade(0, 1, TeleportFadeTime, FLinearColor::Black, true, true);
-		}
-
-		FTimerHandle Handle;
-		GetWorldTimerManager().SetTimer(Handle, this, &AVR_Character_Parent::TeleportUser, TeleportFadeTime, false);
-	}
-	else
-	{
-		Server_TeleportUser();
-	}
-}
-
-void AVR_Character_Parent::StopTryingToTeleportLeft_Implementation()
-{
-	if (bTryingToTeleport && bTeleportLeftHand)
-	{
-		StopTryingToTeleport();
-	}
-}
-
-void AVR_Character_Parent::TeleportRightHand_Implementation()
-{
-	if (bTryingToTeleport) return;
-
-	bTeleportLeftHand = false;
-	ScanToTeleport(RightHandRoot);
-}
-
-void AVR_Character_Parent::StopTryingToTeleportRight_Implementation()
-{
-	if (bTryingToTeleport && !bTeleportLeftHand)
-	{
-		StopTryingToTeleport();
-	}
-}
-
-void AVR_Character_Parent::TeleportUser_Implementation()
-{
-	if (bTryingToTeleport && bValidTeleportLocation)
-	{
-		if (OwningPlayerController != nullptr)
-		{
-			OwningPlayerController->PlayerCameraManager->StartCameraFade(1, 0, TeleportFadeTime, FLinearColor::Black, true, true);
-		}
-
-		Server_TeleportUser();
-	}
-}
-
 void AVR_Character_Parent::SpawnTeleportIcon_Implementation()
 {
 	if (TeleportLocationIcon) return;
@@ -318,8 +139,6 @@ void AVR_Character_Parent::SpawnTeleportIcon_Implementation()
 
 	TeleportLocationIcon = GetWorld()->SpawnActor<ATeleportLocationIcon_Parent>(TeleportLocationIconClass, GetBottomOfCharacter(), GetActorRotation(), SpawnParams);
 	TeleportLocationIcon->SetActorHiddenInGame(true);
-
-	TeleportLocationIcon->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
 }
 
 void AVR_Character_Parent::SpawnTeleportBeam_Implementation()
@@ -337,52 +156,225 @@ void AVR_Character_Parent::SpawnTeleportBeam_Implementation()
 	SpawnParams.SpawnCollisionHandlingOverride = true ? ESpawnActorCollisionHandlingMethod::AlwaysSpawn : ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 	TeleportBeam = GetWorld()->SpawnActor<ABeam_Parent>(TeleportBeamClass, GetBottomOfCharacter(), GetActorRotation(), SpawnParams);
-	//TeleportBeam->SetActorHiddenInGame(true);
-
-	TeleportBeam->AttachToActor(this, FAttachmentTransformRules::KeepWorldTransform);
+	TeleportBeam->SetActorHiddenInGame(true);
 }
 
-void AVR_Character_Parent::Server_TeleportLogic_Implementation()
+void AVR_Character_Parent::TeleportLogic_Implementation()
 {
-	ScanForTeleportLocation();
-}
-
-
-//Teleport Server
-void AVR_Character_Parent::Server_ScanToTeleport_Implementation(USceneComponent* TraceLineFromHere)
-{
-	if (!bUseVRTeleport || bTryingToTeleport || TraceLineFromHere == nullptr) return;
-
-	TraceFromHere = TraceLineFromHere;
-
-	bTryingToTeleport = true;
-}
-
-void AVR_Character_Parent::Server_TeleportUser_Implementation()
-{
-	if (HasAuthority())
+	if (bTryingToTeleport && HasAuthority() && TraceFromHere && !bIsTeleporting)
 	{
-		if (bTryingToTeleport && bValidTeleportLocation)
-		{
-			float ActorHalfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-			TeleportLocation.Z = +ActorHalfHeight;
+		FHitResult HitResult;
+		FVector Start = TraceFromHere->GetComponentLocation() + TeleportOffset;
+		FVector End = TraceFromHere->GetComponentLocation() + TraceFromHere->GetForwardVector() * MaxTeleportRange;
 
-			SetActorLocation(TeleportLocation);
+		bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility);
+
+		if (!bHit)
+		{
+			TeleportEnd = HitResult.TraceEnd;
+			bValidTeleportLocation = false;
+			return;
+		}
+
+		if (Cast<ATeleportActor_Parent>(HitResult.Actor))
+		{
+			TeleportEnd = HitResult.Location;
+			TeleportLocation = TeleportEnd;
+			bValidTeleportLocation = true;
+			//TODO add functionality for different teleport types
+			return;
 		}
 		else
 		{
+			FNavLocation NavLocation;
+			bool bOnNavMesh = UNavigationSystemV1::GetNavigationSystem(GetWorld())->ProjectPointToNavigation(HitResult.Location, NavLocation, TeleportProjectionExtent);
 
+			if (bOnNavMesh)
+			{
+				TeleportEnd = HitResult.Location;
+				TeleportLocation = TeleportEnd;
+				bValidTeleportLocation = true;
+				return;
+			}
+			else
+			{
+				TeleportEnd = HitResult.Location;
+				bValidTeleportLocation = false;
+				return;
+			}
+		}
+	}
+}
+
+void AVR_Character_Parent::TeleportVisual_Implementation()
+{
+	if (bTryingToTeleport && TraceFromHere && !bIsTeleporting)
+	{
+		if (TeleportBeam)
+		{
+			if (TraceFromHere)
+			{
+				TeleportBeam->DrawBeam(TraceFromHere->GetComponentLocation() + TeleportOffset, TeleportEnd, bValidTeleportLocation);
+				TeleportBeam->SetActorHiddenInGame(false);
+			}
 		}
 
-		bTryingToTeleport = false;
+		if (TeleportLocationIcon)
+		{
+			TeleportLocationIcon->MoveActor(TeleportLocation, TeleportEnd, bValidTeleportLocation);
+			TeleportLocationIcon->SetActorHiddenInGame(false);
+		}
+	}
+	
+	if (!bTryingToTeleport)
+	{
+		
+		if (TeleportBeam)
+		{
+			TeleportBeam->SetActorHiddenInGame(true);
+		}
+
+		if (TeleportLocationIcon)
+		{
+			TeleportLocationIcon->SetActorHiddenInGame(true);
+		}
+		
+
+		if (TeleportBeam)
+		{
+			TeleportBeam->SetActorLocation(GetBottomOfCharacter());
+		}
+
+		if (TeleportLocationIcon)
+		{
+			TeleportLocationIcon->SetActorLocation(GetBottomOfCharacter());
+		}
+	}
+}
+
+void AVR_Character_Parent::TeleportUser_Implementation()
+{
+	if (bTryingToTeleport && !bIsTeleporting)
+	{
+		if (bValidTeleportLocation)
+		{
+			bIsTeleporting = true;
+			SetActorLocation(TeleportLocation + FVector(0.0f, 0.0f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight()));
+			TeleportLocation = GetBottomOfCharacter();
+			TraceFromHere = nullptr;
+			bValidTeleportLocation = false;
+			bTryingToTeleport = false;
+			//TODO add teleporting effect
+			bIsTeleporting = false;
+		}
+		else
+		{
+			TeleportLocation = GetBottomOfCharacter();
+			TraceFromHere = nullptr;
+			bValidTeleportLocation = false;
+			bTryingToTeleport = false;
+		}
+
+		
+		if (TeleportBeam)
+		{
+			TeleportBeam->SetActorHiddenInGame(true);
+		}
+
+		if (TeleportLocationIcon)
+		{
+			TeleportLocationIcon->SetActorHiddenInGame(true);
+		}
+		
+	}
+}
+
+void AVR_Character_Parent::StartTeleport_Implementation(USceneComponent* TraceFromComponent)
+{
+	//if (bIsTeleporting) return;
+
+	if (!TraceFromComponent)
+	{
+		if (TeleportBeam)
+		{
+			TeleportBeam->SetActorLocation(GetBottomOfCharacter());
+		}
+
+		if (TeleportLocationIcon)
+		{
+			TeleportLocationIcon->SetActorLocation(GetBottomOfCharacter());
+		}
+
+		if (Camera)
+		{
+			TraceFromHere = Camera;
+			bTryingToTeleport = true;
+			return;
+		}
+		else
+		{
+			bTryingToTeleport = false;
+			return;
+		}
+	}
+	else
+	{
+		TraceFromHere = TraceFromComponent;
+		bTryingToTeleport = true;
 	}
 }
 
 
-//Character
-void AVR_Character_Parent::SavePlayerController_Implementation()
+//Teleport Server
+void AVR_Character_Parent::Server_StartTeleport_Implementation(USceneComponent* TraceFromComponent)
 {
-	OwningPlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	StartTeleport(TraceFromComponent);
+}
+
+void AVR_Character_Parent::Server_TeleportLogic_Implementation()
+{
+	TeleportLogic();
+}
+
+void AVR_Character_Parent::Server_TeleportUser_Implementation()
+{
+	TeleportUser();
+}
+
+
+//Character
+void AVR_Character_Parent::Server_UpdateHandsAndHead_Implementation(FTransform Head, FTransform Left, FTransform Right)
+{
+	UpdateHandsAndHead(Head, Left, Right);
+}
+
+
+void AVR_Character_Parent::UpdateHandsAndHead_Implementation(FTransform Head, FTransform Left, FTransform Right)
+{
+	if (HasAuthority())
+	{
+		HeadTransform = Head;
+		LeftHandTransform = Left;	
+		RightHandTransform = Right;
+	}
+}
+
+void AVR_Character_Parent::Client_UpdateHandsAndHead_Implementation()
+{
+	if (IsLocallyControlled())
+	{
+		HeadTransform = Camera->GetComponentTransform();
+		LeftHandTransform = LeftHandRoot->GetComponentTransform();
+		RightHandTransform = RightHandRoot->GetComponentTransform();
+
+		Server_UpdateHandsAndHead(HeadTransform, LeftHandTransform, RightHandTransform);
+	}
+	else
+	{
+		Camera->SetWorldTransform(HeadTransform);
+		LeftHandRoot->SetWorldTransform(LeftHandTransform);
+		RightHandRoot->SetWorldTransform(RightHandTransform);
+	}
 }
 
 FVector AVR_Character_Parent::GetBottomOfCharacter_Implementation()
