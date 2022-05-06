@@ -6,7 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "TeleportLocationIcon_Parent.generated.h"
 
-UCLASS()
+UCLASS(Abstract)
 class GERZEL_VR_API ATeleportLocationIcon_Parent : public AActor
 {
 	GENERATED_BODY()
@@ -22,5 +22,10 @@ protected:
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
+		void MoveActor(FVector TeleportLocation, FVector End, bool bValidHit);
+
+	virtual void MoveActor_Implementation(FVector TeleportLocation, FVector End, bool bValidHit);
 
 };

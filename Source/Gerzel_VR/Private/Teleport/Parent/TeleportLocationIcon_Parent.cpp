@@ -25,3 +25,7 @@ void ATeleportLocationIcon_Parent::Tick(float DeltaTime)
 
 }
 
+void ATeleportLocationIcon_Parent::MoveActor_Implementation(FVector TeleportLocation, FVector End, bool bValidHit)
+{
+}
+
