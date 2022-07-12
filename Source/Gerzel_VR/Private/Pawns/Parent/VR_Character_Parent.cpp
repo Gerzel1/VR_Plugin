@@ -33,7 +33,7 @@ AVR_Character_Parent::AVR_Character_Parent()
 	SetReplicates(true);
 
 	VRRoot = CreateDefaultSubobject<USceneComponent>(TEXT("VRRoot"));
-	VRRoot->SetupAttachment(GetRootComponent());  
+	VRRoot->SetupAttachment(GetRootComponent());     
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(VRRoot);
