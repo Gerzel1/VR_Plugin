@@ -4,16 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Hands_Parent.generated.h"
+#include "VR_Hand_Parent.generated.h"
 
 UCLASS()
-class GERZEL_VR_API AHands_Parent : public AActor
+class GERZEL_VR_API AVR_Hand_Parent : public AActor
 {
 	GENERATED_BODY()
 	
 public:	
 	// Sets default values for this actor's properties
-	AHands_Parent();
+	AVR_Hand_Parent();
 
 protected:
 	// Called when the game starts or when spawned
