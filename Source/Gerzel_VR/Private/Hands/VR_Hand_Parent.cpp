@@ -27,3 +27,16 @@ void AVR_Hand_Parent::Tick(float DeltaTime)
 
 }
 
+void AVR_Hand_Parent::AttachHands_Implementation(AActor* Actor, USceneComponent* SceneComponent, EAttachmentRule AttachRule)
+{
+	if(!Actor || !SceneComponent) return;
+	FAttachmentTransformRules const AttachmentRules(AttachRule, AttachRule, AttachRule, false);
+	Actor->AttachToComponent(SceneComponent, AttachmentRules);
+}
+
+void AVR_Hand_Parent::Multicast_AttachHands_Implementation(AActor* Actor, USceneComponent* SceneComponent, EAttachmentRule AttachRule)
+{
+	if(!Actor || !SceneComponent) return;
+	AttachHands(Actor, SceneComponent, AttachRule);
+}
+

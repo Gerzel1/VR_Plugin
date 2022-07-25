@@ -23,4 +23,12 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+protected:
+	UFUNCTION(NetMulticast, Reliable, BlueprintCallable, Category = "VR | Hands")
+	void Multicast_AttachHands(AActor* Actor, USceneComponent* SceneComponent, EAttachmentRule AttachRule);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Hands")
+	void AttachHands(AActor* Actor, USceneComponent* SceneComponent, EAttachmentRule AttachRule);
+
+	virtual void AttachHands_Implementation(AActor* Actor, USceneComponent* SceneComponent, EAttachmentRule AttachRule);
 };

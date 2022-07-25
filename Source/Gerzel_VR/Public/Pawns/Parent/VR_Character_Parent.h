@@ -55,12 +55,12 @@ protected:
 		virtual void SpawnTeleportBeam_Implementation();
 
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "VR | Teleportation")
-		void Server_TeleportLogic();
+		void Server_TeleportLogic(FVector Location, FRotator Rotation);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
-		void TeleportLogic();
+		void TeleportLogic(FVector Location, FRotator Rotation);
 
-	virtual void TeleportLogic_Implementation();
+	virtual void TeleportLogic_Implementation(FVector Location, FRotator Rotation);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
 		void TeleportVisual();
@@ -76,12 +76,17 @@ protected:
 	virtual void TeleportUser_Implementation();
 
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "VR | Teleportation")
-		void Server_StartTeleport(USceneComponent* TraceFromComponent);
+		void Server_SetTryingToTeleport(bool WantsToTeleport);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
 		void StartTeleport(USceneComponent* TraceFromComponent);
 
 	virtual void StartTeleport_Implementation(USceneComponent* TraceFromComponent);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
+		void UpdateTeleportStart();
+
+	virtual void UpdateTeleportStart_Implementation();
 
 protected:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Character")
@@ -119,14 +124,6 @@ protected:
 	void SpawnHands();
 
 	virtual void SpawnHands_Implementation();
-
-	UFUNCTION(NetMulticast, Reliable, BlueprintCallable, Category = "VR | Hands")
-	void Multicast_AttachHands(AActor* Actor, USceneComponent* SceneComponent);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Hands")
-	void AttachHands(AActor* Actor, USceneComponent* SceneComponent);
-
-	virtual void AttachHands_Implementation(AActor* Actor, USceneComponent* SceneComponent);
 
 public:	
 	// Called every frame
@@ -171,7 +168,10 @@ protected:
 		bool bIsTeleporting;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
-		FVector TeleportLocation; 
+		FVector TeleportLocation;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
+	FVector StartLocation; 
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
 		bool bRightHand;
