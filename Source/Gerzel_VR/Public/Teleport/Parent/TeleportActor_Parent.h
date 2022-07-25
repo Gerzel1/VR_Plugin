@@ -6,6 +6,13 @@
 #include "GameFramework/Actor.h"
 #include "TeleportActor_Parent.generated.h"
 
+UENUM()
+enum ETeleportActorType
+{
+	Default UMETA(DisplayName = "Default"),
+	Point	UMETA(DisplayName = "TeleportPoint")
+};
+
 UCLASS()
 class GERZEL_VR_API ATeleportActor_Parent : public AActor
 {
@@ -22,5 +29,14 @@ protected:
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+	
+public:
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
+	void TeleportHit(FVector Location, bool IsValidHit);
 
+	virtual void TeleportHit_Implementation(FVector Location, bool IsValidHit);
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
+	TEnumAsByte<ETeleportActorType> TeleportActorType;
 };

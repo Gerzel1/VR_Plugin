@@ -10,7 +10,7 @@ class UCameraComponent;
 class USceneComponent;
 class UStaticMeshComponent;
 class UMotionControllerComponent;
-class AVR_Hands_Parent;
+class AVR_Hand_Parent;
 class APlayerController;
 class ATeleportLocationIcon_Parent;
 class ABeam_Parent;
@@ -55,12 +55,12 @@ protected:
 		virtual void SpawnTeleportBeam_Implementation();
 
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "VR | Teleportation")
-		void Server_TeleportLogic();
+		void Server_TeleportLogic(FVector Location, FRotator Rotation);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
-		void TeleportLogic();
+		void TeleportLogic(FVector Location, FRotator Rotation);
 
-	virtual void TeleportLogic_Implementation();
+	virtual void TeleportLogic_Implementation(FVector Location, FRotator Rotation);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
 		void TeleportVisual();
@@ -76,12 +76,17 @@ protected:
 	virtual void TeleportUser_Implementation();
 
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "VR | Teleportation")
-		void Server_StartTeleport(USceneComponent* TraceFromComponent);
+		void Server_SetTryingToTeleport(bool WantsToTeleport);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
 		void StartTeleport(USceneComponent* TraceFromComponent);
 
 	virtual void StartTeleport_Implementation(USceneComponent* TraceFromComponent);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
+		void UpdateTeleportStart();
+
+	virtual void UpdateTeleportStart_Implementation();
 
 protected:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Character")
@@ -98,10 +103,27 @@ protected:
 		virtual void UpdateHandsAndHead_Implementation(FTransform Head, FTransform Left, FTransform Right);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Character")
-		void Client_UpdateHandsAndHead();
+		void GetBodyMovementTransforms();
 
-		virtual void Client_UpdateHandsAndHead_Implementation();
+		virtual void GetBodyMovementTransforms_Implementation();
 
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Character")
+	void UpdateBodyMovement();
+
+	virtual void UpdateBodyMovement_Implementation();
+
+protected:
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | VR_Info")
+	bool IsVREnabled();
+
+protected:
+	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "VR | Hands")
+	void Server_SpawnHands();
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Hands")
+	void SpawnHands();
+
+	virtual void SpawnHands_Implementation();
 
 public:	
 	// Called every frame
@@ -146,7 +168,10 @@ protected:
 		bool bIsTeleporting;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
-		FVector TeleportLocation; 
+		FVector TeleportLocation;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
+	FVector StartLocation; 
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
 		bool bRightHand;
@@ -164,11 +189,17 @@ protected:
 		FVector TeleportEnd;
 	
 protected:
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bUseVRHands"), Replicated, Category = "VR | Hands")
-		TSubclassOf<AVR_Hands_Parent> VR_Hand_Left;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bUseVRHands"), Replicated, Category = "VR | Hands")
+		TSubclassOf<AVR_Hand_Parent> VR_Hand_Left;
 
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bUseVRHands"), Replicated, Category = "VR | Hands")
-		TSubclassOf<AVR_Hands_Parent> VR_Hand_Right;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bUseVRHands"), Replicated, Category = "VR | Hands")
+		TSubclassOf<AVR_Hand_Parent> VR_Hand_Right;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bUseVRHands"), Category = "VR | Hands")
+		AVR_Hand_Parent* LeftHand;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bUseVRHands"), Category = "VR | Hands")
+	AVR_Hand_Parent* RightHand;
 
 	UPROPERTY(EditAnywhere, meta = (EditCondition = "bUseVRHands"), Category = "VR | Hands")
 		bool bTeleportLeftHand;
@@ -195,6 +226,18 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Character")
 		FTransform RightHandTransform;
+
+	UPROPERTY(VisibleAnywhere, Category = "VR | Character")
+		USceneComponent* CharacterRoot;
+
+	UPROPERTY(VisibleAnywhere, Category = "VR | Character")
+		USceneComponent* BodyRoot;
+
+	UPROPERTY(VisibleAnywhere, Category = "VR | Character")
+		USceneComponent* HeadRoot;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Character")
+		FRotator LastBodyRot;
 	
 private:
 	UPROPERTY(EditDefaultsOnly, meta = (AllowPrivateAccess = "True"), Category = "VR | Class Defaults")

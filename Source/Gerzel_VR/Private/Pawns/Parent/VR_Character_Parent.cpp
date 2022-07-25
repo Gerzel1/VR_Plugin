@@ -5,7 +5,6 @@
 #include "Camera/CameraComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "MotionControllerComponent.h"
-#include "Hands/VR_Hand_Parent/VR_Hands_Parent.h"
 #include "Components/CapsuleComponent.h"
 #include "HeadMountedDisplayFunctionLibrary.h"
 #include "NavigationSystem.h"
@@ -21,6 +20,8 @@
 #include "BeamEffects/Parent/Beam_Parent.h"
 #include "IXRTrackingSystem.h"
 #include "IHeadMountedDisplay.h"
+#include "Hands/VR_Hand_Parent.h"
+#include "Engine/EngineTypes.h"
 
 
 // Sets default values
@@ -33,7 +34,7 @@ AVR_Character_Parent::AVR_Character_Parent()
 	SetReplicates(true);
 
 	VRRoot = CreateDefaultSubobject<USceneComponent>(TEXT("VRRoot"));
-	VRRoot->SetupAttachment(GetRootComponent());  
+	VRRoot->SetupAttachment(GetRootComponent());     
 
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	Camera->SetupAttachment(VRRoot);
@@ -44,6 +45,17 @@ AVR_Character_Parent::AVR_Character_Parent()
 	RightHandRoot = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("RightHandRoot"));
 	RightHandRoot->SetupAttachment(VRRoot);
 	RightHandRoot->MotionSource = FName(TEXT("Right"));
+
+	CharacterRoot = CreateDefaultSubobject<USceneComponent>(TEXT("CharacterRoot"));
+	CharacterRoot->SetupAttachment(VRRoot);
+
+	BodyRoot = CreateDefaultSubobject<USceneComponent>(TEXT("BodyRoot"));
+	BodyRoot->SetupAttachment(CharacterRoot);
+
+	HeadRoot = CreateDefaultSubobject<USceneComponent>(TEXT("HeadRoot"));
+	HeadRoot->SetupAttachment(CharacterRoot);
+
+	SetActorTickEnabled(false);
 }
 
 void AVR_Character_Parent::OnConstruction(const FTransform& Transform)
@@ -59,16 +71,33 @@ void AVR_Character_Parent::BeginPlay()
 
 	OwningPlayerController = Cast<APlayerController>(GetController());
 
+	/*
 	SpawnTeleportBeam();
 	SpawnTeleportIcon();
+	SpawnHands();
+
+	if(IsLocallyControlled())
+	{
+		if(IsVREnabled())
+		{
+			Server_SpawnHands();
+		}
+		else
+		{
+			Camera->SetRelativeLocation(FVector(0.0f, 0.0f,160.0f));
+		}
+	}
+	SetActorTickEnabled((true));
+	*/
 }
 
 // Called every frame
 void AVR_Character_Parent::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	Server_TeleportLogic();
+	UpdateTeleportStart();
 	TeleportVisual();
+	GetBodyMovementTransforms();
 }
 
 // Called to bind functionality to input
@@ -92,6 +121,7 @@ void AVR_Character_Parent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(AVR_Character_Parent, bTryingToTeleport);
 	DOREPLIFETIME(AVR_Character_Parent, TraceFromHere);
 	DOREPLIFETIME(AVR_Character_Parent, TeleportLocation);
+	DOREPLIFETIME(AVR_Character_Parent, StartLocation);
 	DOREPLIFETIME(AVR_Character_Parent, TeleportEnd);
 	DOREPLIFETIME(AVR_Character_Parent, bValidTeleportLocation);
 	DOREPLIFETIME(AVR_Character_Parent, TeleportLocationIconClass);
@@ -159,15 +189,15 @@ void AVR_Character_Parent::SpawnTeleportBeam_Implementation()
 	TeleportBeam->SetActorHiddenInGame(true);
 }
 
-void AVR_Character_Parent::TeleportLogic_Implementation()
+void AVR_Character_Parent::TeleportLogic_Implementation(FVector Location, FRotator Rotation)
 {
-	if (bTryingToTeleport && HasAuthority() && TraceFromHere && !bIsTeleporting)
+	if (bTryingToTeleport && HasAuthority() && !bIsTeleporting)
 	{
 		FHitResult HitResult;
-		FVector Start = TraceFromHere->GetComponentLocation() + TeleportOffset;
-		FVector End = TraceFromHere->GetComponentLocation() + TraceFromHere->GetForwardVector() * MaxTeleportRange;
+		StartLocation = Location + TeleportOffset;
+		FVector End = (FRotationMatrix(Rotation).GetScaledAxis(EAxis::X)) * MaxTeleportRange + StartLocation;
 
-		bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility);
+		bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, StartLocation, End, ECC_Visibility);
 
 		if (!bHit)
 		{
@@ -176,13 +206,28 @@ void AVR_Character_Parent::TeleportLogic_Implementation()
 			return;
 		}
 
-		if (Cast<ATeleportActor_Parent>(HitResult.Actor))
+		if (ATeleportActor_Parent* TeleportActor = Cast<ATeleportActor_Parent>(HitResult.Actor))
 		{
-			TeleportEnd = HitResult.Location;
-			TeleportLocation = TeleportEnd;
-			bValidTeleportLocation = true;
-			//TODO add functionality for different teleport types
-			return;
+			TEnumAsByte<ETeleportActorType> const ETeleportActorType = TeleportActor->TeleportActorType;
+			
+			switch (ETeleportActorType)
+			{
+			case ETeleportActorType::Default:
+				TeleportEnd = HitResult.Location;
+				TeleportLocation = TeleportEnd;
+				bValidTeleportLocation = true;
+				break;
+
+			case ETeleportActorType::Point:
+				TeleportEnd = HitResult.GetActor()->GetActorLocation();
+				TeleportLocation = TeleportEnd;
+				bValidTeleportLocation = true;
+				break;
+
+			default: break;
+				
+			}
+			TeleportActor->TeleportHit(TeleportLocation, bValidTeleportLocation);
 		}
 		else
 		{
@@ -208,21 +253,18 @@ void AVR_Character_Parent::TeleportLogic_Implementation()
 
 void AVR_Character_Parent::TeleportVisual_Implementation()
 {
-	if (bTryingToTeleport && TraceFromHere && !bIsTeleporting)
+	if (bTryingToTeleport && !bIsTeleporting)
 	{
 		if (TeleportBeam)
 		{
-			if (TraceFromHere)
-			{
-				TeleportBeam->DrawBeam(TraceFromHere->GetComponentLocation() + TeleportOffset, TeleportEnd, bValidTeleportLocation);
-				TeleportBeam->SetActorHiddenInGame(false);
-			}
+			TeleportBeam->DrawBeam(StartLocation, TeleportEnd, bValidTeleportLocation);
+			//TeleportBeam->SetActorHiddenInGame(false);
 		}
 
 		if (TeleportLocationIcon)
 		{
 			TeleportLocationIcon->MoveActor(TeleportLocation, TeleportEnd, bValidTeleportLocation);
-			TeleportLocationIcon->SetActorHiddenInGame(false);
+			//TeleportLocationIcon->SetActorHiddenInGame(false);
 		}
 	}
 	
@@ -232,21 +274,12 @@ void AVR_Character_Parent::TeleportVisual_Implementation()
 		if (TeleportBeam)
 		{
 			TeleportBeam->SetActorHiddenInGame(true);
-		}
-
-		if (TeleportLocationIcon)
-		{
-			TeleportLocationIcon->SetActorHiddenInGame(true);
-		}
-		
-
-		if (TeleportBeam)
-		{
 			TeleportBeam->SetActorLocation(GetBottomOfCharacter());
 		}
 
 		if (TeleportLocationIcon)
 		{
+			TeleportLocationIcon->SetActorHiddenInGame(true);
 			TeleportLocationIcon->SetActorLocation(GetBottomOfCharacter());
 		}
 	}
@@ -291,7 +324,7 @@ void AVR_Character_Parent::TeleportUser_Implementation()
 
 void AVR_Character_Parent::StartTeleport_Implementation(USceneComponent* TraceFromComponent)
 {
-	//if (bIsTeleporting) return;
+	if (bIsTeleporting || bTryingToTeleport) return;
 
 	if (!TraceFromComponent)
 	{
@@ -308,32 +341,39 @@ void AVR_Character_Parent::StartTeleport_Implementation(USceneComponent* TraceFr
 		if (Camera)
 		{
 			TraceFromHere = Camera;
-			bTryingToTeleport = true;
-			return;
 		}
 		else
 		{
-			bTryingToTeleport = false;
+			Server_SetTryingToTeleport(false);
 			return;
 		}
 	}
 	else
 	{
 		TraceFromHere = TraceFromComponent;
-		bTryingToTeleport = true;
+	}
+
+	Server_SetTryingToTeleport(true);
+}
+
+void AVR_Character_Parent::UpdateTeleportStart_Implementation()
+{
+	if(bTryingToTeleport && TraceFromHere && IsLocallyControlled())
+	{
+		Server_TeleportLogic(TraceFromHere->GetComponentLocation(), TraceFromHere->GetComponentRotation());
 	}
 }
 
 
 //Teleport Server
-void AVR_Character_Parent::Server_StartTeleport_Implementation(USceneComponent* TraceFromComponent)
+void AVR_Character_Parent::Server_SetTryingToTeleport_Implementation(bool WantsToTeleport)
 {
-	StartTeleport(TraceFromComponent);
+	bTryingToTeleport = WantsToTeleport;
 }
 
-void AVR_Character_Parent::Server_TeleportLogic_Implementation()
+void AVR_Character_Parent::Server_TeleportLogic_Implementation(FVector Location, FRotator Rotation)
 {
-	TeleportLogic();
+	TeleportLogic(Location, Rotation);
 }
 
 void AVR_Character_Parent::Server_TeleportUser_Implementation()
@@ -359,7 +399,7 @@ void AVR_Character_Parent::UpdateHandsAndHead_Implementation(FTransform Head, FT
 	}
 }
 
-void AVR_Character_Parent::Client_UpdateHandsAndHead_Implementation()
+void AVR_Character_Parent::GetBodyMovementTransforms_Implementation()
 {
 	if (IsLocallyControlled())
 	{
@@ -369,17 +409,57 @@ void AVR_Character_Parent::Client_UpdateHandsAndHead_Implementation()
 
 		Server_UpdateHandsAndHead(HeadTransform, LeftHandTransform, RightHandTransform);
 	}
-	else
+	UpdateBodyMovement();
+}
+
+void AVR_Character_Parent::UpdateBodyMovement_Implementation()
+{
+	if(!IsLocallyControlled())
 	{
-		Camera->SetWorldTransform(HeadTransform);
 		LeftHandRoot->SetWorldTransform(LeftHandTransform);
 		RightHandRoot->SetWorldTransform(RightHandTransform);
 	}
+	HeadRoot->SetWorldTransform(HeadTransform);
+	
+	BodyRoot->SetWorldLocation(HeadTransform.GetLocation() + HeadTransform.GetRotation().GetForwardVector()*-10.0f + HeadTransform.GetRotation().GetUpVector()* -6.0f);
+
+	FRotator const TargetRot = HeadTransform.GetRotation().FQuat::Rotator();
+
+	LastBodyRot = FMath::RInterpTo(LastBodyRot, TargetRot, GetWorld()->GetDeltaSeconds(), 5.0f);
+
+	FRotator const NewRot = FRotator(0.0f, LastBodyRot.Yaw, 0.0f);
+	
+	CharacterRoot->SetWorldRotation(NewRot);
+}
+
+bool AVR_Character_Parent::IsVREnabled_Implementation()
+{
+	return GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->IsHMDEnabled();
 }
 
 FVector AVR_Character_Parent::GetBottomOfCharacter_Implementation()
 {
 	return FVector(VRRoot->GetComponentLocation());
+}
+
+//Hands
+void AVR_Character_Parent::Server_SpawnHands_Implementation()
+{
+	SpawnHands();
+}
+
+void AVR_Character_Parent::SpawnHands_Implementation()
+{
+	//if(!IsVREnabled()) return;
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	SpawnParams.SpawnCollisionHandlingOverride = true ? ESpawnActorCollisionHandlingMethod::AlwaysSpawn : ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	LeftHand = GetWorld()->SpawnActor<AVR_Hand_Parent>(VR_Hand_Left, LeftHandRoot->GetComponentLocation(), LeftHandRoot->GetComponentRotation(), SpawnParams);
+	LeftHand->Multicast_AttachHands_Implementation(LeftHand, LeftHandRoot, EAttachmentRule::SnapToTarget);
+	
+	RightHand = GetWorld()->SpawnActor<AVR_Hand_Parent>(VR_Hand_Right, RightHandRoot->GetComponentLocation(), RightHandRoot->GetComponentRotation(), SpawnParams);
+	RightHand->Multicast_AttachHands_Implementation(RightHand, RightHandRoot, EAttachmentRule::SnapToTarget);
 }
 
 

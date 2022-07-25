@@ -3,14 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Hands/Parent/Hands_Parent.h"
-#include "VR_Hands_Parent.generated.h"
+#include "Animation/VR_Hands_Anim.h"
+#include "VR_Hands_Dynamic_Fingers.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class GERZEL_VR_API AVR_Hands_Parent : public AHands_Parent
+class GERZEL_VR_API UVR_Hands_Dynamic_Fingers : public UVR_Hands_Anim
 {
 	GENERATED_BODY()
 	
