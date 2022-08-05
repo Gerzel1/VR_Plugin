@@ -9,8 +9,8 @@
 UENUM()
 enum ETeleportActorType
 {
-	Default UMETA(DisplayName = "Default"),
-	Point	UMETA(DisplayName = "TeleportPoint")
+	TeleportDefault UMETA(DisplayName = "TeleportDefault"),
+	TeleportPoint	UMETA(DisplayName = "TeleportPoint")
 };
 
 UCLASS()

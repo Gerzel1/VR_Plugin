@@ -7,7 +7,7 @@
 #include "HighlightComp.generated.h"
 
 
-UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent), Blueprintable)
 class GERZEL_VR_API UHighlightComp : public UActorComponent
 {
 	GENERATED_BODY()

@@ -14,7 +14,6 @@ class AVR_Hand_Parent;
 class APlayerController;
 class ATeleportLocationIcon_Parent;
 class ABeam_Parent;
-//class IHeadMountedDisplay;
 
 
 UCLASS()
@@ -34,59 +33,9 @@ protected:
 
 protected:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Camera")
-		void CameraOffset();
-
-		virtual void CameraOffset_Implementation();
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Camera")
 		void SetCameraToFloor();
 
 		virtual void SetCameraToFloor_Implementation();
-
-protected:
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
-		void SpawnTeleportIcon();
-
-		virtual void SpawnTeleportIcon_Implementation();
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
-		void SpawnTeleportBeam();
-
-		virtual void SpawnTeleportBeam_Implementation();
-
-	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "VR | Teleportation")
-		void Server_TeleportLogic(FVector Location, FRotator Rotation);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
-		void TeleportLogic(FVector Location, FRotator Rotation);
-
-	virtual void TeleportLogic_Implementation(FVector Location, FRotator Rotation);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
-		void TeleportVisual();
-
-	virtual void TeleportVisual_Implementation();
-
-	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "VR | Teleportation")
-		void Server_TeleportUser();
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
-		void TeleportUser();
-
-	virtual void TeleportUser_Implementation();
-
-	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "VR | Teleportation")
-		void Server_SetTryingToTeleport(bool WantsToTeleport);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
-		void StartTeleport(USceneComponent* TraceFromComponent);
-
-	virtual void StartTeleport_Implementation(USceneComponent* TraceFromComponent);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Teleportation")
-		void UpdateTeleportStart();
-
-	virtual void UpdateTeleportStart_Implementation();
 
 protected:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Character")
@@ -138,55 +87,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "VR | Camera")
 		USceneComponent* VRRoot;
-
-protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (BlueprintBaseOnly), Replicated, Category = "VR | Teleportation")
-		TSubclassOf<ATeleportLocationIcon_Parent> TeleportLocationIconClass;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
-		ATeleportLocationIcon_Parent* TeleportLocationIcon;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (BlueprintBaseOnly), Replicated, Category = "VR | Teleportation")
-		TSubclassOf<ABeam_Parent> TeleportBeamClass;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
-		ABeam_Parent* TeleportBeam;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
-		float MaxTeleportRange = 1000.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
-		FVector TeleportOffset = FVector(0.0f, 0.0f, 10.0f);
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
-		bool bTryingToTeleport;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
-		bool bValidTeleportLocation;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
-		bool bIsTeleporting;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
-		FVector TeleportLocation;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
-	FVector StartLocation; 
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
-		bool bRightHand;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
-		float TeleportFadeTime = 0.25f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
-		USceneComponent* TraceFromHere;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Teleportation")
-		FVector TeleportProjectionExtent = FVector(100, 100, 100);
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Teleportation")
-		FVector TeleportEnd;
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bUseVRHands"), Replicated, Category = "VR | Hands")
@@ -227,13 +127,13 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Character")
 		FTransform RightHandTransform;
 
-	UPROPERTY(VisibleAnywhere, Category = "VR | Character")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VR | Character")
 		USceneComponent* CharacterRoot;
 
-	UPROPERTY(VisibleAnywhere, Category = "VR | Character")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VR | Character")
 		USceneComponent* BodyRoot;
 
-	UPROPERTY(VisibleAnywhere, Category = "VR | Character")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VR | Character")
 		USceneComponent* HeadRoot;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Character")

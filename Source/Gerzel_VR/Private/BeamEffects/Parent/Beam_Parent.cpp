@@ -22,6 +22,11 @@ void ABeam_Parent::DrawBeam_Implementation(FVector Start, FVector End, bool bVal
 {
 }
 
+void ABeam_Parent::TeleportTraceResult_Implementation(FVector Start, FVector End, bool ValidHit)
+{
+	DrawBeam(Start, End, ValidHit);
+}
+
 // Called every frame
 void ABeam_Parent::Tick(float DeltaTime)
 {

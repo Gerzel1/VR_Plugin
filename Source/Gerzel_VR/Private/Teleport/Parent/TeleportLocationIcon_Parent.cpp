@@ -3,6 +3,9 @@
 
 #include "Teleport/Parent/TeleportLocationIcon_Parent.h"
 
+#include "DataTableUtils.h"
+#include "Teleport/Parent/TeleportActor_Parent.h"
+
 // Sets default values
 ATeleportLocationIcon_Parent::ATeleportLocationIcon_Parent()
 {
@@ -15,7 +18,6 @@ ATeleportLocationIcon_Parent::ATeleportLocationIcon_Parent()
 void ATeleportLocationIcon_Parent::BeginPlay()
 {
 	Super::BeginPlay();
-	
 }
 
 // Called every frame
@@ -25,7 +27,11 @@ void ATeleportLocationIcon_Parent::Tick(float DeltaTime)
 
 }
 
-void ATeleportLocationIcon_Parent::MoveActor_Implementation(FVector TeleportLocation, FVector End, bool bValidHit)
+void ATeleportLocationIcon_Parent::TeleportTraceResult_Implementation(FVector Start, FVector End, bool ValidHit)
+{
+}
+
+void ATeleportLocationIcon_Parent::TeleportResult_Implementation(FVector End, bool ValidHit)
 {
 }
 
