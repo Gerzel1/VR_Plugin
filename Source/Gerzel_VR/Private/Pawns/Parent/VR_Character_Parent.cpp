@@ -45,17 +45,10 @@ AVR_Character_Parent::AVR_Character_Parent()
 	RightHandRoot = CreateDefaultSubobject<UMotionControllerComponent>(TEXT("RightHandRoot"));
 	RightHandRoot->SetupAttachment(VRRoot);
 	RightHandRoot->MotionSource = FName(TEXT("Right"));
-
-	CharacterRoot = CreateDefaultSubobject<USceneComponent>(TEXT("CharacterRoot"));
-	CharacterRoot->SetupAttachment(VRRoot);
-
-	BodyRoot = CreateDefaultSubobject<USceneComponent>(TEXT("BodyRoot"));
-	BodyRoot->SetupAttachment(CharacterRoot);
-
-	HeadRoot = CreateDefaultSubobject<USceneComponent>(TEXT("HeadRoot"));
-	HeadRoot->SetupAttachment(CharacterRoot);
-
+	
 	SetActorTickEnabled(false);
+
+	bUseControllerRotationYaw = false;
 }
 
 void AVR_Character_Parent::OnConstruction(const FTransform& Transform)
@@ -76,7 +69,6 @@ void AVR_Character_Parent::BeginPlay()
 void AVR_Character_Parent::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	GetBodyMovementTransforms();
 }
 
 // Called to bind functionality to input
@@ -92,9 +84,9 @@ void AVR_Character_Parent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	
 	DOREPLIFETIME(AVR_Character_Parent, VR_Hand_Left);
 	DOREPLIFETIME(AVR_Character_Parent, VR_Hand_Right);
-	DOREPLIFETIME_CONDITION(AVR_Character_Parent, HeadTransform, COND_SkipOwner);
-	DOREPLIFETIME_CONDITION(AVR_Character_Parent, LeftHandTransform, COND_SkipOwner);
-	DOREPLIFETIME_CONDITION(AVR_Character_Parent, RightHandTransform, COND_SkipOwner);
+	//DOREPLIFETIME_CONDITION(AVR_Character_Parent, HeadTransform, COND_SkipOwner);
+	//DOREPLIFETIME_CONDITION(AVR_Character_Parent, LeftHandTransform, COND_SkipOwner);
+	//DOREPLIFETIME_CONDITION(AVR_Character_Parent, RightHandTransform, COND_SkipOwner);
 }
 
 
@@ -109,6 +101,7 @@ void AVR_Character_Parent::SetCameraToFloor_Implementation()
 
 
 //Character
+/*
 void AVR_Character_Parent::Server_UpdateHandsAndHead_Implementation(FTransform Head, FTransform Left, FTransform Right)
 {
 	UpdateHandsAndHead(Head, Left, Right);
@@ -156,7 +149,7 @@ void AVR_Character_Parent::UpdateBodyMovement_Implementation()
 	
 	CharacterRoot->SetWorldRotation(NewRot);
 }
-
+*/
 bool AVR_Character_Parent::IsVREnabled_Implementation()
 {
 	return GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->IsHMDEnabled();

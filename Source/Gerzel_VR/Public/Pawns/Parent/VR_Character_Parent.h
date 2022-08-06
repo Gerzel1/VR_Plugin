@@ -43,24 +43,6 @@ protected:
 
 		virtual FVector GetBottomOfCharacter_Implementation();
 
-	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "VR | Character")
-		void Server_UpdateHandsAndHead(FTransform Head, FTransform Left, FTransform Right);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Character")
-		void UpdateHandsAndHead(FTransform Head, FTransform Left, FTransform Right);
-
-		virtual void UpdateHandsAndHead_Implementation(FTransform Head, FTransform Left, FTransform Right);
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Character")
-		void GetBodyMovementTransforms();
-
-		virtual void GetBodyMovementTransforms_Implementation();
-
-	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | Character")
-	void UpdateBodyMovement();
-
-	virtual void UpdateBodyMovement_Implementation();
-
 protected:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "VR | VR_Info")
 	bool IsVREnabled();
@@ -110,34 +92,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "VR | Hands")
 		UMotionControllerComponent* RightHandRoot;
 
-	//UPROPERTY(BlueprintReadOnly, Category = "VR")
-		//IHeadMountedDisplay* pHMD;
-
 protected: 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | UserInfo")
 		APlayerController* OwningPlayerController;
-
-protected:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Character")
-		FTransform HeadTransform;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Character")
-		FTransform LeftHandTransform;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "VR | Character")
-		FTransform RightHandTransform;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VR | Character")
-		USceneComponent* CharacterRoot;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VR | Character")
-		USceneComponent* BodyRoot;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "VR | Character")
-		USceneComponent* HeadRoot;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "VR | Character")
-		FRotator LastBodyRot;
 	
 private:
 	UPROPERTY(EditDefaultsOnly, meta = (AllowPrivateAccess = "True"), Category = "VR | Class Defaults")
