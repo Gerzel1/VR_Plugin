@@ -70,6 +70,14 @@ protected:
 
 	virtual void HideTeleportVis_Implementation();
 
+	UFUNCTION(BlueprintNativeEvent ,BlueprintCallable, Category = "VR | Teleportation")
+	void TraceResult(FHitResult Hit);
+
+	virtual void TraceResult_Implementation(FHitResult Hit);
+
+	UFUNCTION(BlueprintCallable, Category = "VR | Teleportation")
+	FHitResult LineTrace(USceneComponent* SceneComp, FVector Offset, float TraceDist);
+
 	//server events
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "VR | Teleportation")
 	void Server_BeginTeleport(bool const bTryingToTeleport, APawn* PawnToTeleport);
@@ -77,6 +85,13 @@ protected:
 	UFUNCTION(Server, Reliable, BlueprintCallable, Category = "VR | Teleportation")
 	void Server_TeleportPawn();
 
+private:
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "VR | Teleportation")
+	bool CollectionParamValid();
+
+	UFUNCTION(BlueprintCallable, Category = "VR | Teleportation")
+	void TeleportLogic();
+	
 private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "True"), Category = "VR | Spawnable")
 	AActor* TeleportBeam;
@@ -95,6 +110,9 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "True"), Category = "VR | Spawnable")
 	float TraceDistance;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "True"), Category = "VR | Teleportation")
+	float TraceExtent;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "True"), Replicated, Category = "VR | Teleportation")
 	bool bTryingToTele;
@@ -110,4 +128,10 @@ private:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "True"), Replicated, Category = "VR | Teleportation")
 	APawn* Pawn;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "True"), Replicated, Category = "VR | Teleportation")
+	UMaterialParameterCollection* MaterialCollection;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "True"), Replicated, Category = "VR | Teleportation")
+	FName ParamName;
 };

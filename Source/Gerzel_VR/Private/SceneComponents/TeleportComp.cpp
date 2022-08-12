@@ -3,7 +3,10 @@
 
 #include "SceneComponents/TeleportComp.h"
 
+#include <ThirdParty/Vulkan/Include/vulkan/vulkan_core.h>
+
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMaterialLibrary.h"
 #include "Net/UnrealNetwork.h"
 
 // Sets default values for this component's properties
@@ -26,6 +29,8 @@ void UTeleportComp::BeginPlay()
 void UTeleportComp::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	TeleportLogic();
 }
 
 void UTeleportComp::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -74,16 +79,38 @@ void UTeleportComp::SpawnTeleportIcon_Implementation()
 
 void UTeleportComp::BeginTeleport_Implementation(APawn* PawnToTeleport)
 {
+	if(!PawnToTeleport) return;
+	
+	if(CollectionParamValid())
+	{
+		if(!UKismetMaterialLibrary::GetScalarParameterValue(this, MaterialCollection, ParamName) == 0) return;
+		
+		UKismetMaterialLibrary::SetScalarParameterValue(this, MaterialCollection, ParamName, 1.0f);
+	}
+
+	Server_BeginTeleport(true, PawnToTeleport);
 }
 
 void UTeleportComp::TryToTeleport_Implementation()
 {
+	if(CollectionParamValid())
+	{
+		if(!UKismetMaterialLibrary::GetScalarParameterValue(this, MaterialCollection, ParamName) == 1 || !bTryingToTele) return;
+		
+		UKismetMaterialLibrary::SetScalarParameterValue(this, MaterialCollection, ParamName, 0.0f);
+	}
+	if(bTryingToTele)
+	{
+		Server_TeleportPawn();
+	}
 }
 
 void UTeleportComp::TeleportPawn_Implementation()
 {
 	if(bTryingToTele)
 	{
+		HideTeleportVis();
+		
 		if(bValidTeleportLocation && Pawn)
 		{
 			Pawn->SetActorLocation(TraceEnd + TeleportOffsetLocation);
@@ -93,8 +120,6 @@ void UTeleportComp::TeleportPawn_Implementation()
 		{
 			Server_BeginTeleport(false, nullptr);
 		}
-		
-		HideTeleportVis();
 	}
 }
 
@@ -122,6 +147,55 @@ void UTeleportComp::HideTeleportVis_Implementation()
 	if(TeleportIcon && TeleportIcon->GetClass()->ImplementsInterface(UTeleportInterface::StaticClass()))
 	{
 		ITeleportInterface::Execute_TeleportResult(TeleportIcon, TraceEnd, bValidTeleportLocation);
+	}
+}
+
+void UTeleportComp::TraceResult_Implementation(FHitResult Hit)
+{
+	TraceStart = Hit.TraceStart;
+
+	if(Hit.IsValidBlockingHit())
+	{
+		
+	}
+	else
+	{
+		
+	}
+}
+
+FHitResult UTeleportComp::LineTrace(USceneComponent* SceneComp, FVector Offset, float TraceDist)
+{
+	FHitResult Hit;
+	
+	if(SceneComp)
+	{
+		FVector Start = SceneComp->GetComponentLocation()+Offset;
+		FVector End = (SceneComp->GetForwardVector()* TraceDistance) + Start;
+		
+		GetWorld()->LineTraceSingleByChannel(Hit, Start, End,ECC_Visibility);
+
+		return Hit;
+	}
+	return Hit;
+}
+
+bool UTeleportComp::CollectionParamValid()
+{
+	return (MaterialCollection && ParamName.IsValid());
+}
+
+void UTeleportComp::TeleportLogic()
+{
+	if(!bTryingToTele) return;
+
+	if(Pawn->IsLocallyControlled())
+	{
+		TraceResult(LineTrace(this, FVector(0.0f, 0.0f,0.0f), TraceDistance));
+	}
+	else
+	{
+		TeleportVis();
 	}
 }
 

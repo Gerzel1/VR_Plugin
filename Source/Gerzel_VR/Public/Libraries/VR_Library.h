@@ -15,5 +15,5 @@ class GERZEL_VR_API UVR_Library : public UBlueprintFunctionLibrary
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "VR | Trace")
-	FHitResult SimpleLineTrace(USceneComponent* SceneComp, FVector Offset, float TraceDistance, ECollisionChannel TraceType);
+	FHitResult SimpleLineTrace(USceneComponent* SceneComp, FVector Offset, float TraceDistance);
 };
