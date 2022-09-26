@@ -39,7 +39,8 @@ public class Gerzel_VR : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-				"HeadMountedDisplay",
+				"HeadMountedDisplay", 
+				"OnlineSubsystem",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

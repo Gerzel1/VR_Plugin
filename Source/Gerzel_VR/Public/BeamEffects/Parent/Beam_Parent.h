@@ -4,11 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Interfaces/TeleportInterface.h"
 #include "Beam_Parent.generated.h"
 
 
 UCLASS(Abstract)
-class GERZEL_VR_API ABeam_Parent : public AActor
+class GERZEL_VR_API ABeam_Parent : public AActor, public ITeleportInterface
 {
 	GENERATED_BODY()
 	
@@ -29,4 +30,7 @@ public:
 
 	virtual void DrawBeam_Implementation(FVector Start, FVector End, bool bValidHit);
 
+public:
+	void TeleportTraceResult_Implementation(FVector Start, FVector End, bool ValidHit) override;
+	
 };
